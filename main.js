@@ -1,5 +1,7 @@
 // main.js
-import { createFFmpeg, fetchFile } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js?module';
+
+// Remove the ES module import, use FFmpeg from the global variable
+const { createFFmpeg, fetchFile } = FFmpeg;
 
 // Initialize FFmpeg
 const ffmpeg = createFFmpeg({ log: true });

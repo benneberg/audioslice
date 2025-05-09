@@ -1,5 +1,5 @@
 // main.js
-import { createFFmpeg, fetchFile } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js?module';
+import { createFFmpeg, fetchFile } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
 
 // Initialize FFmpeg
 const ffmpeg = createFFmpeg({ log: true });

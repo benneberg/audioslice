@@ -4,7 +4,11 @@
 const { createFFmpeg, fetchFile } = FFmpeg;
 
 // Initialize FFmpeg
-const ffmpeg = createFFmpeg({ log: true });
+const ffmpeg = createFFmpeg({ 
+    log: true,
+    wasmOptions: { threads: false  // Disable threads for compatibility
+    },
+});
 let ffmpegReady = false;
 
 async function loadFFmpeg() {

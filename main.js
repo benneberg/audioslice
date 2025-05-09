@@ -113,8 +113,8 @@ playPauseButton.addEventListener('click', () => {
         isPlaying = true;
         playPauseButton.textContent = 'Pause';
         sourceNode.onended = () => {
-            isPlaying = false;
-            playPauseButton.textContent = 'Play';
+        isPlaying = false;
+        playPauseButton.textContent = 'Play';
         };
     }
 });
@@ -137,24 +137,37 @@ stretchFactorInput.addEventListener('input', () => {
     stretchValue.textContent = parseFloat(stretchFactorInput.value).toFixed(2) + 'x';
 });
 
-export function exportMP3(audioBuffer, filename) {
-    const numChannels = audioBuffer.numberOfChannels;
-    const sampleRate = audioBuffer.sampleRate;
-    const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, 128);
-    const samples = audioBuffer.getChannelData(0);
-    const mp3Data = [];
+function exportMP3(audioBuffer, filename) {
+    // Get channel data
+    const leftFloat = audioBuffer.getChannelData(0);
+    const rightFloat = audioBuffer.numberOfChannels > 1
+        ? audioBuffer.getChannelData(1)
+        : leftFloat; // duplicate left if mono
 
-    const sampleBlockSize = 1152;
-    for (let i = 0; i < samples.length; i += sampleBlockSize) {
-        const sampleChunk = samples.subarray(i, i + sampleBlockSize);
-        const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+    // Convert Float32Array [-1,1] to Int16Array
+    const left = new Int16Array(leftFloat.length);
+    const right = new Int16Array(rightFloat.length);
+    for (let i = 0; i < leftFloat.length; i++) {
+        let l = Math.max(-1, Math.min(1, leftFloat[i]));
+        let r = Math.max(-1, Math.min(1, rightFloat[i]));
+        left[i] = l < 0 ? l * 0x8000 : l * 0x7FFF;
+        right[i] = r < 0 ? r * 0x8000 : r * 0x7FFF;
+    }
+
+    const mp3Encoder = new lamejs.Mp3Encoder(2, audioBuffer.sampleRate, 128); // 2 channels for stereo
+    const mp3Data = [];
+    const chunkSize = 1152;
+    for (let i = 0; i < left.length; i += chunkSize) {
+        const leftChunk = left.subarray(i, i + chunkSize);
+        const rightChunk = right.subarray(i, i + chunkSize);
+        const mp3buf = mp3Encoder.encodeBuffer(leftChunk, rightChunk);
         if (mp3buf.length > 0) {
-            mp3Data.push(new Int8Array(mp3buf));
+            mp3Data.push(new Uint8Array(mp3buf));
         }
     }
     const mp3buf = mp3Encoder.flush();
     if (mp3buf.length > 0) {
-        mp3Data.push(new Int8Array(mp3buf));
+        mp3Data.push(new Uint8Array(mp3buf));
     }
 
     const blob = new Blob(mp3Data, { type: 'audio/mp3' });
@@ -162,7 +175,7 @@ export function exportMP3(audioBuffer, filename) {
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = filename;
+    a.download = filename.endsWith('.mp3') ? filename : filename + '.mp3';
     document.body.appendChild(a);
     a.click();
     URL.revokeObjectURL(url);
@@ -185,7 +198,7 @@ exportButton.addEventListener('click', async () => {
         if (format === 'wav') {
             exportWAV(processedAudioBuffer, fileName);
         } else if (format === 'mp3') {
-            exportMP3(processedAudioBuffer, fileName);
+            exportMP3(audioBuffer, 'output.mp3');
         } else {
             alert(`Unsupported format: ${format}`);
         }

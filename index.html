@@ -638,26 +638,24 @@
 
         // --- Exporting ---
         exportButton.addEventListener('click', async () => {
-         if (!processedAudioBuffer) {
-         alert("No audio to export.");
-          return;
-         }
+    if (!processedAudioBuffer) {
+        alert("No audio to export.");
+        return;
+    }
 
-         const format = outputFormatSelect.value;
-         const filenameBase = outputFileNameInput.value || "edited_audio";
+    const format = outputFormatSelect.value;
+    const filenameBase = outputFileNameInput.value || "edited_audio";
 
-         // Convert AudioBuffer to WAV Blob (you can use your encodeWAV version here)
-         const wavBlob = await audioBufferToWavBlob(processedAudioBuffer);
-
-        if (format === "wav") {
-        downloadBlob(wavBlob, filenameBase + ".wav");
-        } else if (format === "mp3") {
+    if (format === "wav") {
+        exportWAV(processedAudioBuffer, filenameBase + ".wav");
+    } else if (format === "mp3") {
         try {
             exportButton.disabled = true;
             exportButton.textContent = "Exporting MP3...";
 
-            await loadFFmpeg(); // Lazy-load FFmpeg
+            const wavBlob = getWavBlobFromAudioBuffer(processedAudioBuffer);
 
+            await loadFFmpeg(); // lazy-load FFmpeg if needed
             ffmpeg.FS('writeFile', 'input.wav', await fetchFile(wavBlob));
             await ffmpeg.run('-i', 'input.wav', 'output.mp3');
             const mp3Data = ffmpeg.FS('readFile', 'output.mp3');
@@ -665,16 +663,17 @@
 
             downloadBlob(mp3Blob, filenameBase + ".mp3");
         } catch (err) {
-            console.error(err);
-            alert("Failed to export MP3.");
+            console.error("MP3 export failed:", err);
+            alert("MP3 export failed. Check console for details.");
         } finally {
             exportButton.disabled = false;
             exportButton.textContent = "Export";
         }
-       } else {
-         alert("Unsupported format selected.");
-      }
-    });
+    } else {
+        alert("Unsupported format selected.");
+    }
+});
+         
 
         function exportWAV(audioBuffer, filename) {
             const numOfChan = audioBuffer.numberOfChannels;
@@ -694,18 +693,36 @@
 
             // Convert to 16-bit PCM
             const dataview = encodeWAV(interleaved, audioBuffer.sampleRate, numOfChan);
-            const audioBlob = new Blob([dataview], { type: 'audio/wav' });
+            const audioBlob = getWavBlobFromAudioBuffer(audioBuffer);
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    document.body.appendChild(a);
+    a.style = 'display: none';
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+        
+        function getWavBlobFromAudioBuffer(audioBuffer) {
+    const numOfChan = audioBuffer.numberOfChannels;
+    const C = [];
+    for(let i = 0; i < numOfChan; i++) {
+        C.push(audioBuffer.getChannelData(i));
+    }
+    const L = C[0].length;
 
-            const url = URL.createObjectURL(audioBlob);
-            const a = document.createElement('a');
-            document.body.appendChild(a);
-            a.style = 'display: none';
-            a.href = url;
-            a.download = filename;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+    const interleaved = new Float32Array(L * numOfChan);
+    for (let i = 0; i < L; i++) {
+        for (let channel = 0; channel < numOfChan; channel++) {
+            interleaved[i * numOfChan + channel] = C[channel][i];
         }
+    }
+
+    const dataview = encodeWAV(interleaved, audioBuffer.sampleRate, numOfChan);
+    return new Blob([dataview], { type: 'audio/wav' });
+}
 
          // Convert WAV (or raw AudioBuffer) to MP3
          // You need to:
@@ -753,6 +770,18 @@
          a.click();
          URL.revokeObjectURL(url);
         }
+
+         async function loadFFmpeg() {
+          if (!window.ffmpeg) {
+          const { createFFmpeg, fetchFile } = FFmpeg;
+          window.ffmpeg = createFFmpeg({ log: true });
+          window.fetchFile = fetchFile;
+           await ffmpeg.load();
+            console.log("FFmpeg loaded");
+           }
+         }
+
+
 
         function encodeWAV(samples, sampleRate, numChannels) {
             const buffer = new ArrayBuffer(44 + samples.length * 2); // 2 bytes per sample

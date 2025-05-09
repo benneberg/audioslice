@@ -637,33 +637,44 @@
         });
 
         // --- Exporting ---
-        exportButton.addEventListener('click', () => {
-            if (!processedAudioBuffer) {
-                alert("No audio to export.");
-                return;
-            }
-            const format = outputFormatSelect.value;
-            const filename = (outputFileNameInput.value || "edited_audio") + "." + format;
-
-            if (format === "wav") {
-                exportWAV(processedAudioBuffer, filename);
-            } else {
-                alert("MP3 export is not supported in this demo. Please choose WAV.");
-            }
-        });
-
-        // Lazy loading ffmpeg.wasm when user need it
-        let ffmpeg = null;
-
-        async function loadFFmpeg() {
-         if (!ffmpeg) {
-         const { createFFmpeg, fetchFile } = FFmpeg;
-         ffmpeg = createFFmpeg({ log: true });
-         await ffmpeg.load();
-           window.fetchFile = fetchFile; // expose for later use
-           console.log('FFmpeg loaded');
-           }
+        exportButton.addEventListener('click', async () => {
+         if (!processedAudioBuffer) {
+         alert("No audio to export.");
+          return;
          }
+
+         const format = outputFormatSelect.value;
+         const filenameBase = outputFileNameInput.value || "edited_audio";
+
+         // Convert AudioBuffer to WAV Blob (you can use your encodeWAV version here)
+         const wavBlob = await audioBufferToWavBlob(processedAudioBuffer);
+
+        if (format === "wav") {
+        downloadBlob(wavBlob, filenameBase + ".wav");
+        } else if (format === "mp3") {
+        try {
+            exportButton.disabled = true;
+            exportButton.textContent = "Exporting MP3...";
+
+            await loadFFmpeg(); // Lazy-load FFmpeg
+
+            ffmpeg.FS('writeFile', 'input.wav', await fetchFile(wavBlob));
+            await ffmpeg.run('-i', 'input.wav', 'output.mp3');
+            const mp3Data = ffmpeg.FS('readFile', 'output.mp3');
+            const mp3Blob = new Blob([mp3Data.buffer], { type: 'audio/mpeg' });
+
+            downloadBlob(mp3Blob, filenameBase + ".mp3");
+        } catch (err) {
+            console.error(err);
+            alert("Failed to export MP3.");
+        } finally {
+            exportButton.disabled = false;
+            exportButton.textContent = "Export";
+        }
+       } else {
+         alert("Unsupported format selected.");
+      }
+    });
 
         function exportWAV(audioBuffer, filename) {
             const numOfChan = audioBuffer.numberOfChannels;

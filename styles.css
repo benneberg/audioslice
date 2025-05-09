@@ -1,0 +1,204 @@
+:root {
+    --bg-color: #1a1a2e; /* Dark blue/purple */
+    --primary-color: #16213e;
+    --secondary-color: #0f3460;
+    --accent-color: #e94560; /* Vibrant pink/red */
+    --text-color: #e0e0e0;
+    --text-muted-color: #a0a0a0;
+    --border-color: #5372f0; /* Neon blue for borders/highlights */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 15px;
+    overflow-x: hidden;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 450px; /* Max width for mobile portrait */
+    background-color: var(--primary-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+header {
+    background-color: var(--secondary-color);
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+header h1 {
+    font-size: 1.5em;
+    color: var(--accent-color);
+}
+
+main {
+    padding: 20px;
+}
+
+.section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: var(--secondary-color);
+    border-radius: 8px;
+    border: 1px solid transparent; /* Placeholder for focus/active */
+}
+.section.active {
+    border-color: var(--accent-color);
+}
+
+.section h2 {
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    color: var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+button, input[type="file"], select, input[type="text"], input[type="number"] {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    font-size: 1em;
+    appearance: none; /* For select */
+    -webkit-appearance: none; /* For select */
+}
+input[type="file"]::-webkit-file-upload-button {
+    background: var(--accent-color);
+    color: var(--text-color);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+input[type="file"]::file-selector-button { /* Standard */
+    background: var(--accent-color);
+    color: var(--text-color);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+
+button {
+    background-color: var(--accent-color);
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+button:hover, button:focus {
+    background-color: #ff6b81; /* Lighter accent */
+}
+button:disabled {
+    background-color: var(--text-muted-color);
+    cursor: not-allowed;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: var(--text-muted-color);
+}
+
+.waveform-container {
+    position: relative;
+    width: 100%;
+    height: 120px; /* Fixed height for waveform */
+    background-color: var(--bg-color);
+    border-radius: 4px;
+    margin-bottom: 15px;
+    overflow: hidden; /* Important for selection overlay */
+    border: 1px solid var(--border-color);
+}
+
+#waveformCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.selection-overlay {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: rgba(233, 69, 96, 0.3); /* Accent color with transparency */
+    border-left: 2px solid var(--accent-color);
+    border-right: 2px solid var(--accent-color);
+    cursor: grab;
+    touch-action: none; /* Prevent scrolling while dragging */
+}
+.selection-overlay:active {
+    cursor: grabbing;
+}
+
+.handle {
+    position: absolute;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    background-color: var(--accent-color);
+    cursor: ew-resize;
+    touch-action: none;
+}
+.handle.left { left: -4px; }
+.handle.right { right: -4px; }
+
+
+.hidden {
+    display: none !important;
+}
+
+.info-text {
+    font-size: 0.85em;
+    color: var(--text-muted-color);
+    text-align: center;
+    margin-top: 10px;
+}
+
+.range-slider-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.range-slider-container label {
+    min-width: 70px; /* "Stretch:" */
+    margin-right: 10px;
+    margin-bottom: 0;
+}
+.range-slider-container input[type="range"] {
+    flex-grow: 1;
+    margin-bottom: 0;
+    accent-color: var(--accent-color); /* Styles the thumb and track in modern browsers */
+}
+.range-slider-container span {
+    min-width: 40px;
+    text-align: right;
+    margin-left: 10px;
+}

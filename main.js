@@ -1,27 +1,5 @@
 // main.js
 
-// Remove the ES module import, use FFmpeg from the global variable
-const { createFFmpeg, fetchFile } = FFmpeg;
-
-// Initialize FFmpeg
-const ffmpeg = createFFmpeg({ 
-    log: true,
-    wasmOptions: { threads: false  // Disable threads for compatibility
-    },
-});
-let ffmpegReady = false;
-
-async function loadFFmpeg() {
-    if (!ffmpegReady) {
-        const loadingStatus = document.getElementById('loadingStatus');
-        loadingStatus.classList.remove('hidden');
-        loadingStatus.textContent = 'Loading FFmpeg...';
-        await ffmpeg.load();
-        ffmpegReady = true;
-        loadingStatus.classList.add('hidden');
-    }
-}
-
 // UI Elements
 const audioFileInput = document.getElementById('audioFile');
 const fileNameDisplay = document.getElementById('fileName');
@@ -114,7 +92,6 @@ audioFileInput.addEventListener('change', async (e) => {
     if (!file) return;
     fileNameDisplay.textContent = file.name;
     audioFile = file;
-    await loadFFmpeg();
     await decodeAndRender(file);
     editorSection.classList.remove('hidden');
     importSection.classList.remove('active');
@@ -160,7 +137,37 @@ stretchFactorInput.addEventListener('input', () => {
     stretchValue.textContent = parseFloat(stretchFactorInput.value).toFixed(2) + 'x';
 });
 
-import { exportWAV, exportMP3 } from './exporter.js'; // Adjust path as needed
+export function exportMP3(audioBuffer, filename) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, 128);
+    const samples = audioBuffer.getChannelData(0);
+    const mp3Data = [];
+
+    const sampleBlockSize = 1152;
+    for (let i = 0; i < samples.length; i += sampleBlockSize) {
+        const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+        const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+        if (mp3buf.length > 0) {
+            mp3Data.push(new Int8Array(mp3buf));
+        }
+    }
+    const mp3buf = mp3Encoder.flush();
+    if (mp3buf.length > 0) {
+        mp3Data.push(new Int8Array(mp3buf));
+    }
+
+    const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
 
 exportButton.addEventListener('click', async () => {
     if (!processedAudioBuffer) {

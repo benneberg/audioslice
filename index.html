@@ -305,7 +305,12 @@
         let selectionStartPx = 0;
         let selectionEndPx = waveformCanvas.width;
         let currentDuration = 0;
-
+        
+        // Initialize FFmpeg 
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+        await ffmpeg.load();
+        
         // --- Initialization ---
         function initAudioContext() {
             if (!audioContext) {
@@ -568,6 +573,32 @@
             }
         });
 
+        // Control audio over time using GainNode
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createBufferSource();
+         source.buffer = audioBuffer;
+
+        const gainNode = audioCtx.createGain();
+         source.connect(gainNode).connect (audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+         gainNode.gain.setValueAtTime(0, now);
+         gainNode.gain.linearRampToValueAtTime(1, now + fadeInDuration);
+         gainNode.gain.setValueAtTime(1, now + fadeInDuration);
+         gainNode.gain.linearRampToValueAtTime(0, now + fadeInDuration + fadeOutDuration);
+
+         source.start();
+
+        // Reduce the dynamic range of audio using DynamicsCompressorNode
+        const compressor = audioCtx.createDynamicsCompressor();
+        source.connect(compressor).connect(audioCtx.destination);
+        
+        compressor.threshold.setValueAtTime(-50, audioCtx.currentTime);
+        compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+        compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+        compressor.attack.setValueAtTime(0, audioCtx.currentTime);
+        compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
         playPauseButton.addEventListener('click', () => {
             if (!processedAudioBuffer) return;
             initAudioContext(); // Ensure context is active (for iOS)
@@ -621,6 +652,19 @@
             }
         });
 
+        // Lazy loading ffmpeg.wasm when user need it
+        let ffmpeg = null;
+
+        async function loadFFmpeg() {
+         if (!ffmpeg) {
+         const { createFFmpeg, fetchFile } = FFmpeg;
+         ffmpeg = createFFmpeg({ log: true });
+         await ffmpeg.load();
+           window.fetchFile = fetchFile; // expose for later use
+           console.log('FFmpeg loaded');
+           }
+         }
+
         function exportWAV(audioBuffer, filename) {
             const numOfChan = audioBuffer.numberOfChannels;
             const C = []; // array of channels to be interleaved
@@ -652,6 +696,28 @@
             document.body.removeChild(a);
         }
 
+         // Convert WAV (or raw AudioBuffer) to MP3
+         // You need to:
+         // •	Render the edited audio with Web Audio API
+         // •	Convert it to a WAV Blob
+         // •	Then use ffmpeg to convert that Blob to MP3
+	
+	     async function exportToMP3(audioBuffer) {
+          await loadFFmpeg(); // lazy-loads FFmpeg if not already loaded
+
+          // Render buffer to WAV (offline)
+          const wavBlob = await audioBufferToWavBlob(audioBuffer);
+
+          // Feed into ffmpeg
+          ffmpeg.FS('writeFile', 'input.wav', await fetchFile(wavBlob));
+           await ffmpeg.run('-i', 'input.wav', 'output.mp3');
+
+          const mp3Data = ffmpeg.FS('readFile', 'output.mp3');
+          const mp3Blob = new Blob([mp3Data.buffer], { type: 'audio/mpeg' });
+
+           downloadBlob(mp3Blob, 'exported-audio.mp3');
+         }
+
         function floatTo16BitPCM(output, offset, input) {
             for (let i = 0; i < input.length; i++, offset += 2) {
                 const s = Math.max(-1, Math.min(1, input[i]));
@@ -663,6 +729,18 @@
             for (let i = 0; i < string.length; i++) {
                 view.setUint8(offset + i, string.charCodeAt(i));
             }
+        }
+
+        // Trigger download
+        function downloadBlob(blob, filename) {
+         const url = URL.createObjectURL(blob);
+         const a = document.createElement('a');
+         a.style.display = 'none';
+         a.href = url;
+         a.download = filename;
+         document.body.appendChild(a);
+         a.click();
+         URL.revokeObjectURL(url);
         }
 
         function encodeWAV(samples, sampleRate, numChannels) {
@@ -709,5 +787,6 @@
 
 
     </script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 </body>
 </html>

@@ -67,6 +67,12 @@ function updateTimeInputs() {
     endTimeInput.max = audioBuffer ? audioBuffer.duration : 0;
 }
 
+// Show export panel after audio is loaded
+function showExportPanel() {
+    exportSection.classList.remove('hidden');
+    exportSection.classList.add('active');
+}
+
 // On waveform load
 function onWaveformReady() {
     startTime = 0;
@@ -74,6 +80,7 @@ function onWaveformReady() {
     updateTimeInputs();
     stretchFactorInput.value = 1;
     stretchValue.textContent = '1.0x';
+    updateSelectionOverlay();
 }
 
 // Decode and render waveform after file import
@@ -84,7 +91,15 @@ async function decodeAndRender(file) {
     drawWaveform(audioBuffer);
     onWaveformReady();
     playPauseButton.disabled = false;
+    showExportPanel();
 }
+
+// Time stretch for playback
+let playbackRate = 1.0;
+stretchFactorInput.addEventListener('input', () => {
+    playbackRate = parseFloat(stretchFactorInput.value);
+    stretchValue.textContent = playbackRate.toFixed(2) + 'x';
+});
 
 // File import handler
 audioFileInput.addEventListener('change', async (e) => {
@@ -109,12 +124,13 @@ playPauseButton.addEventListener('click', () => {
         sourceNode = audioContext.createBufferSource();
         sourceNode.buffer = audioBuffer;
         sourceNode.connect(audioContext.destination);
+        sourceNode.playbackRate.value = playbackRate;
         sourceNode.start(0, startTime, endTime - startTime);
         isPlaying = true;
         playPauseButton.textContent = 'Pause';
         sourceNode.onended = () => {
-        isPlaying = false;
-        playPauseButton.textContent = 'Play';
+            isPlaying = false;
+            playPauseButton.textContent = 'Play';
         };
     }
 });
@@ -130,11 +146,6 @@ endTimeInput.addEventListener('input', () => {
 // Apply trim button (just updates playback region)
 applyTrimButton.addEventListener('click', () => {
     updateTimeInputs();
-});
-
-// Stretch factor
-stretchFactorInput.addEventListener('input', () => {
-    stretchValue.textContent = parseFloat(stretchFactorInput.value).toFixed(2) + 'x';
 });
 
 function exportMP3(audioBuffer, filename) {
@@ -209,4 +220,61 @@ exportButton.addEventListener('click', async () => {
 
     exportButton.disabled = false;
     exportButton.textContent = 'Export & Download';
+});
+
+// --- Draggable handles for region selection ---
+const selectionOverlay = document.getElementById('selectionOverlay');
+const handleLeft = document.getElementById('handleLeft');
+const handleRight = document.getElementById('handleRight');
+
+let dragging = null;
+let dragStartX = 0;
+let dragStartTime = 0;
+
+function updateSelectionOverlay() {
+    if (!audioBuffer) return;
+    const duration = audioBuffer.duration;
+    const canvas = waveformCanvas;
+    const width = canvas.offsetWidth;
+    const leftPx = (startTime / duration) * width;
+    const rightPx = (endTime / duration) * width;
+    selectionOverlay.style.left = leftPx + 'px';
+    selectionOverlay.style.width = (rightPx - leftPx) + 'px';
+    selectionOverlay.classList.remove('hidden');
+}
+
+function pxToTime(x) {
+    const width = waveformCanvas.offsetWidth;
+    return (x / width) * audioBuffer.duration;
+}
+
+handleLeft.addEventListener('mousedown', (e) => {
+    dragging = 'left';
+    dragStartX = e.clientX;
+    dragStartTime = startTime;
+    e.preventDefault();
+});
+handleRight.addEventListener('mousedown', (e) => {
+    dragging = 'right';
+    dragStartX = e.clientX;
+    dragStartTime = endTime;
+    e.preventDefault();
+});
+document.addEventListener('mousemove', (e) => {
+    if (!dragging || !audioBuffer) return;
+    const dx = e.clientX - dragStartX;
+    const width = waveformCanvas.offsetWidth;
+    const dt = (dx / width) * audioBuffer.duration;
+    if (dragging === 'left') {
+        startTime = Math.max(0, Math.min(dragStartTime + dt, endTime - 0.01));
+        updateTimeInputs();
+        updateSelectionOverlay();
+    } else if (dragging === 'right') {
+        endTime = Math.min(audioBuffer.duration, Math.max(dragStartTime + dt, startTime + 0.01));
+        updateTimeInputs();
+        updateSelectionOverlay();
+    }
+});
+document.addEventListener('mouseup', () => {
+    dragging = null;
 });

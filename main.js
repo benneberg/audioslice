@@ -160,34 +160,33 @@ stretchFactorInput.addEventListener('input', () => {
     stretchValue.textContent = parseFloat(stretchFactorInput.value).toFixed(2) + 'x';
 });
 
-// Export logic
+import { exportWAV, exportMP3 } from './exporter.js'; // Adjust path as needed
+
 exportButton.addEventListener('click', async () => {
-    if (!audioFile || !ffmpegReady) return;
+    if (!processedAudioBuffer) {
+        alert("No audio to export.");
+        return;
+    }
+
+    const format = outputFormatSelect.value;
+    const fileName = (outputFileNameInput.value || "edited_audio") + "." + format;
+
     exportButton.disabled = true;
     exportButton.textContent = 'Exporting...';
-    const fileName = outputFileNameInput.value || 'edited_audio';
-    const format = outputFormatSelect.value;
-    const trimArgs = [
-        '-ss', startTime.toString(),
-        '-to', endTime.toString(),
-        '-i', 'input',
-        '-af', `atempo=${stretchFactorInput.value}`,
-        '-c:a', 'pcm_s16le',
-        '-ar', '44100',
-        '-y', `output.${format}`
-    ];
-    ffmpeg.FS('writeFile', 'input', await fetchFile(audioFile));
-    await ffmpeg.run(...trimArgs);
-    const data = ffmpeg.FS('readFile', `output.${format}`);
-    const blob = new Blob([data.buffer], { type: format === 'wav' ? 'audio/wav' : 'audio/mpeg' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${fileName}.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+
+    try {
+        if (format === 'wav') {
+            exportWAV(processedAudioBuffer, fileName);
+        } else if (format === 'mp3') {
+            exportMP3(processedAudioBuffer, fileName);
+        } else {
+            alert(`Unsupported format: ${format}`);
+        }
+    } catch (err) {
+        console.error('Export error:', err);
+        alert('An error occurred while exporting the audio.');
+    }
+
     exportButton.disabled = false;
     exportButton.textContent = 'Export & Download';
 });

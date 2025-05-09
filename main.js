@@ -99,6 +99,9 @@ let playbackRate = 1.0;
 stretchFactorInput.addEventListener('input', () => {
     playbackRate = parseFloat(stretchFactorInput.value);
     stretchValue.textContent = playbackRate.toFixed(2) + 'x';
+    if (isPlaying && sourceNode) {
+        sourceNode.playbackRate.value = playbackRate;
+    }
 });
 
 // File import handler
@@ -193,23 +196,36 @@ function exportMP3(audioBuffer, filename) {
     document.body.removeChild(a);
 }
 
+function getSelectedRegionBuffer() {
+    if (!audioBuffer) return null;
+    const sampleRate = audioBuffer.sampleRate;
+    const numChannels = audioBuffer.numberOfChannels;
+    const startSample = Math.floor(startTime * sampleRate);
+    const endSample = Math.floor(endTime * sampleRate);
+    const length = endSample - startSample;
+    const newBuffer = audioContext.createBuffer(numChannels, length, sampleRate);
+    for (let ch = 0; ch < numChannels; ch++) {
+        const channelData = audioBuffer.getChannelData(ch).slice(startSample, endSample);
+        newBuffer.copyToChannel(channelData, ch, 0);
+    }
+    return newBuffer;
+}
+
 exportButton.addEventListener('click', async () => {
-    if (!processedAudioBuffer) {
+    const regionBuffer = getSelectedRegionBuffer();
+    if (!regionBuffer) {
         alert("No audio to export.");
         return;
     }
-
     const format = outputFormatSelect.value;
     const fileName = (outputFileNameInput.value || "edited_audio") + "." + format;
-
     exportButton.disabled = true;
     exportButton.textContent = 'Exporting...';
-
     try {
         if (format === 'wav') {
-            exportWAV(processedAudioBuffer, fileName);
+            exportWAV(regionBuffer, fileName);
         } else if (format === 'mp3') {
-            exportMP3(audioBuffer, 'output.mp3');
+            exportMP3(regionBuffer, fileName);
         } else {
             alert(`Unsupported format: ${format}`);
         }
@@ -217,7 +233,6 @@ exportButton.addEventListener('click', async () => {
         console.error('Export error:', err);
         alert('An error occurred while exporting the audio.');
     }
-
     exportButton.disabled = false;
     exportButton.textContent = 'Export & Download';
 });
@@ -248,6 +263,7 @@ function pxToTime(x) {
     return (x / width) * audioBuffer.duration;
 }
 
+// --- Mouse events ---
 handleLeft.addEventListener('mousedown', (e) => {
     dragging = 'left';
     dragStartX = e.clientX;
@@ -276,5 +292,37 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 document.addEventListener('mouseup', () => {
+    dragging = null;
+});
+
+// --- Touch events for mobile ---
+handleLeft.addEventListener('touchstart', (e) => {
+    dragging = 'left';
+    dragStartX = e.touches[0].clientX;
+    dragStartTime = startTime;
+    e.preventDefault();
+}, { passive: false });
+handleRight.addEventListener('touchstart', (e) => {
+    dragging = 'right';
+    dragStartX = e.touches[0].clientX;
+    dragStartTime = endTime;
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!dragging || !audioBuffer) return;
+    const dx = e.touches[0].clientX - dragStartX;
+    const width = waveformCanvas.offsetWidth;
+    const dt = (dx / width) * audioBuffer.duration;
+    if (dragging === 'left') {
+        startTime = Math.max(0, Math.min(dragStartTime + dt, endTime - 0.01));
+        updateTimeInputs();
+        updateSelectionOverlay();
+    } else if (dragging === 'right') {
+        endTime = Math.min(audioBuffer.duration, Math.max(dragStartTime + dt, startTime + 0.01));
+        updateTimeInputs();
+        updateSelectionOverlay();
+    }
+}, { passive: false });
+document.addEventListener('touchend', () => {
     dragging = null;
 });

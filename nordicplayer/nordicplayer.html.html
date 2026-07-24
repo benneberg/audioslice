@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nordic Wave">
+<meta name="theme-color" content="#F7F5F0">
+<meta name="description" content="A premium music player with waveform visualization">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23F7F5F0' width='180' height='180' rx='40'/><circle cx='90' cy='90' r='60' fill='%231E293B'/><circle cx='90' cy='90' r='20' fill='%23F7F5F0'/></svg>">
+<title>Nordic Wave</title>
+<style>
+:root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --black: #111111;
+    --gray: #6B6B68;
+    --line: #DCD9D1;
+    --accent: #2563EB;
+    --waveform: #1E293B;
+    --waveform-progress: #2563EB;
+    --shadow: 0 20px 50px rgba(0,0,0,.10), 0 4px 15px rgba(0,0,0,.06);
+    --soft-shadow: 0 8px 25px rgba(0,0,0,.08);
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    background: var(--bg);
+    color: var(--black);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) 22px env(safe-area-inset-bottom);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 20px;
+    padding-bottom: 10px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+}
+
+.logo-icon {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.icon-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--black);
+    color: white;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--soft-shadow);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    cursor: pointer;
+}
+
+.icon-button:active {
+    transform: scale(0.92);
+}
+
+.icon-button svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+}
+
+/* Player */
+.player {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 0;
+}
+
+/* Cover Art */
+.cover-container {
+    position: relative;
+    width: min(70vw, 300px);
+    aspect-ratio: 1;
+}
+
+.cover {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #ffffff, #dedbd2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    box-shadow: inset 0 0 40px rgba(255,255,255,0.8), 0 35px 70px rgba(0,0,0,0.18);
+    animation: float 6s ease-in-out infinite;
+    overflow: hidden;
+}
+
+.cover svg {
+    width: 50%;
+    height: 50%;
+    opacity: 0.3;
+}
+
+.cover.playing {
+    animation: rotateDisc 18s linear infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+@keyframes rotateDisc {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Vinyl grooves overlay */
+.vinyl-grooves {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.1;
+}
+
+.vinyl-grooves circle {
+    fill: none;
+    stroke: var(--black);
+    stroke-width: 0.5;
+}
+
+/* Song Info */
+.song-info {
+    text-align: center;
+    width: 100%;
+    max-width: 90%;
+}
+
+.song-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+
+.artist {
+    font-size: 15px;
+    color: var(--gray);
+}
+
+/* Upload Button - iOS compatible */
+.upload-section {
+    padding: 10px 0;
+    position: relative;
+}
+
+.upload-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 2px solid var(--black);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 14px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+    /* iOS: ensure label looks and behaves like a tappable button */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.upload-button:hover {
+    background: var(--black);
+    color: white;
+}
+
+.upload-button:active {
+    transform: scale(0.96);
+    background: var(--black);
+    color: white;
+}
+
+.upload-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Hide file input accessibly — label triggers it via for="filePicker" */
+.upload-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Waveform */
+.waveform-container {
+    width: 100%;
+    padding: 15px 0;
+    position: relative;
+}
+
+.waveform-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--gray);
+    margin-bottom: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.waveform-canvas {
+    width: 100%;
+    height: 80px;
+    cursor: pointer;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.02);
+}
+
+.waveform-canvas:active {
+    background: rgba(0,0,0,0.04);
+}
+
+/* Progress Bar Fallback */
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--black);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 0;
+}
+
+.control {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: white;
+    color: var(--black);
+    font-size: 20px;
+    box-shadow: var(--soft-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.control:active {
+    transform: scale(0.9);
+}
+
+.control svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+.control.play {
+    width: 76px;
+    height: 76px;
+    background: var(--black);
+    color: white;
+    font-size: 28px;
+}
+
+.control.play svg {
+    width: 28px;
+    height: 28px;
+}
+
+.control.small {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+}
+
+.control.small svg {
+    width: 18px;
+    height: 18px;
+}
+
+.control.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* Playlist Panel */
+.playlist-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 60vh;
+    background: white;
+    border-radius: 30px 30px 0 0;
+    padding: 25px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 25px);
+    box-shadow: var(--shadow);
+    transform: translateY(100%);
+    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.playlist-panel.open {
+    transform: translateY(0);
+}
+
+.playlist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.playlist-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.playlist-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.playlist-action {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: none;
+    background: var(--bg);
+    color: var(--gray);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.playlist-action:hover {
+    background: var(--line);
+}
+
+.playlist-action.danger:hover {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.playlist-songs {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.playlist-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray);
+}
+
+.playlist-empty svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.3;
+    margin-bottom: 12px;
+}
+
+.song-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    margin-bottom: 6px;
+}
+
+.song-item:hover {
+    background: rgba(0,0,0,0.04);
+}
+
+.song-item.active {
+    background: rgba(37, 99, 235, 0.1);
+}
+
+.song-item.active .song-item-title {
+    color: var(--accent);
+}
+
+.song-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.song-icon svg {
+    width: 20px;
+    height: 20px;
+    opacity: 0.4;
+}
+
+.song-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.song-item-title {
+    font-size: 15px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.song-item-duration {
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 2px;
+}
+
+.song-item-delete {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.song-item:hover .song-item-delete {
+    opacity: 1;
+}
+
+.song-item-delete:hover {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.song-item-delete svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Overlay */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 99;
+}
+
+.overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--black);
+    color: white;
+    padding: 14px 24px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 200;
+    pointer-events: none;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+/* Loading */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.loading-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gray);
+    animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+
+/* Install Banner */
+.install-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--black);
+    color: white;
+    padding: 16px 22px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transform: translateY(100%);
+    transition: transform 0.4s ease;
+    z-index: 150;
+}
+
+.install-banner.show {
+    transform: translateY(0);
+}
+
+.install-banner-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.install-banner-btn {
+    padding: 10px 20px;
+    background: white;
+    color: var(--black);
+    border: none;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.install-banner-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Animation */
+.fade-in {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar */
+.playlist-songs::-webkit-scrollbar {
+    width: 4px;
+}
+
+.playlist-songs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.playlist-songs::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 2px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+    <header class="header">
+        <div class="logo-icon">
+            <svg viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+                <circle cx="16" cy="16" r="5" fill="currentColor"/>
+                <circle cx="16" cy="16" r="10" stroke="currentColor" stroke-width="1" opacity="0.3"/>
+            </svg>
+            <div class="logo">Nordic Wave</div>
+        </div>
+        <button class="icon-button" id="playlistToggle" aria-label="Toggle playlist">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+    </header>
+
+    <main class="player">
+        <div class="cover-container">
+            <div class="cover" id="cover">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+            </div>
+            <svg class="vinyl-grooves" viewBox="0 0 100 100" id="vinylGrooves"></svg>
+        </div>
+
+        <div class="song-info">
+            <div class="song-title" id="songTitle">Choose music</div>
+            <div class="artist" id="artistName">Your local library</div>
+        </div>
+
+        <div class="upload-section">
+            <label class="upload-button" id="uploadBtn" for="filePicker">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Add songs
+            </label>
+            <input class="upload-input" id="filePicker" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/flac,audio/x-flac,audio/ogg,audio/aac,audio/opus,audio/webm,.mp3,.m4a,.wav,.flac,.ogg,.aac,.opus,.webm" multiple>
+        </div>
+
+        <div class="waveform-container">
+            <div class="waveform-info">
+                <span id="currentTime">0:00</span>
+                <span id="totalTime">0:00</span>
+            </div>
+            <canvas class="waveform-canvas" id="waveformCanvas"></canvas>
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control small" id="shuffleBtn" aria-label="Shuffle">
+                <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+            <button class="control" id="prevBtn" aria-label="Previous">
+                <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
+            <button class="control play" id="playBtn" aria-label="Play">
+                <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="control" id="nextBtn" aria-label="Next">
+                <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
+            <button class="control small" id="loopBtn" aria-label="Loop">
+                <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            </button>
+        </div>
+    </main>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="playlist-panel" id="playlistPanel">
+        <div class="playlist-header">
+            <h2>Playlist</h2>
+            <div class="playlist-actions">
+                <button class="playlist-action" id="addMoreBtn">+ Add</button>
+                <button class="playlist-action danger" id="clearAllBtn">Clear</button>
+            </div>
+        </div>
+        <div class="playlist-songs" id="playlistSongs">
+            <div class="playlist-empty" id="emptyState">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+                <p>No songs yet</p>
+                <p style="font-size: 13px; margin-top: 4px;">Add some music to get started</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="install-banner" id="installBanner">
+        <span class="install-banner-text">Install app for offline use</span>
+        <button class="install-banner-btn" id="installBtn">Install</button>
+        <button class="install-banner-close" id="installClose">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+// IndexedDB Setup
+const DB_NAME = 'NordicWaveDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'songs';
+
+let db = null;
+let audioContext = null;
+
+// State
+let playlist = [];
+let currentIndex = -1;
+let isPlaying = false;
+let loop = false;
+let shuffle = false;
+let waveformData = [];
+let audioBuffer = null;
+
+// Strip file extension and clean up filename for display
+function cleanName(filename) {
+    return filename
+        .replace(/\.[^/.]+$/, '')   // remove extension
+        .replace(/[-_]+/g, ' ')     // hyphens/underscores → spaces
+        .trim();
+}
+
+// DOM Elements
+const audio = document.getElementById('audio');
+const filePicker = document.getElementById('filePicker');
+const uploadBtn = document.getElementById('uploadBtn');
+const cover = document.getElementById('cover');
+const songTitle = document.getElementById('songTitle');
+const artistName = document.getElementById('artistName');
+const currentTimeEl = document.getElementById('currentTime');
+const totalTimeEl = document.getElementById('totalTime');
+const waveformCanvas = document.getElementById('waveformCanvas');
+const progressBar = document.getElementById('progressBar');
+const progressFill = document.getElementById('progressFill');
+const playBtn = document.getElementById('playBtn');
+const playIcon = document.getElementById('playIcon');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const loopBtn = document.getElementById('loopBtn');
+const playlistToggle = document.getElementById('playlistToggle');
+const playlistPanel = document.getElementById('playlistPanel');
+const playlistSongs = document.getElementById('playlistSongs');
+const overlay = document.getElementById('overlay');
+const toast = document.getElementById('toast');
+const emptyState = document.getElementById('emptyState');
+const addMoreBtn = document.getElementById('addMoreBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const installBanner = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+const installClose = document.getElementById('installClose');
+const vinylGrooves = document.getElementById('vinylGrooves');
+
+// iOS-compatible file picker trigger
+// uploadBtn is now a <label for="filePicker"> — no JS needed to open the picker.
+// The label's native click behaviour works correctly on iOS Safari.
+
+// Initialize vinyl grooves
+function initVinylGrooves() {
+    let svg = '';
+    for (let i = 15; i <= 48; i += 3) {
+        svg += `<circle cx="50" cy="50" r="${i}"/>`;
+    }
+    vinylGrooves.innerHTML = svg;
+}
+
+// IndexedDB Functions
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            db = request.result;
+            resolve(db);
+        };
+
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                database.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            }
+        };
+    });
+}
+
+async function saveSongToDB(blob, name, type) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.add({ blob, name, type, addedAt: Date.now() });
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getAllSongsFromDB() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll();
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getSongFromDB(id) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function deleteSongFromDB(id) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function clearAllSongsFromDB() {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.clear();
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Audio Analysis
+function initAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+}
+
+async function analyzeAudio(blob) {
+    try {
+        const ctx = initAudioContext();
+        // Resume must happen inside a user-gesture call stack on iOS;
+        // here we attempt it and proceed regardless — audio.play() below
+        // will trigger the gesture unlock if needed.
+        if (ctx.state === 'suspended') {
+            await ctx.resume().catch(() => {});
+        }
+
+        // slice() gives us a fresh ArrayBuffer so iOS can't detach the original
+        const arrayBuffer = await blob.slice(0).arrayBuffer();
+        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        waveformData = extractPeaks(audioBuffer, 200);
+        drawWaveform();
+        return waveformData;
+    } catch (error) {
+        console.error('Error analyzing audio:', error);
+        waveformData = [];
+        drawEmptyWaveform();
+        return [];
+    }
+}
+
+function extractPeaks(buffer, numPeaks) {
+    const rawData = buffer.getChannelData(0);
+    if (!rawData || rawData.length === 0) return [];
+    const sampleSize = Math.max(1, Math.floor(rawData.length / numPeaks));
+    const peaks = [];
+
+    for (let i = 0; i < numPeaks; i++) {
+        const start = i * sampleSize;
+        const end = Math.min(start + sampleSize, rawData.length);
+        let max = 0;
+        for (let j = start; j < end; j++) {
+            const abs = Math.abs(rawData[j]);
+            if (abs > max) max = abs;
+        }
+        peaks.push(max);
+    }
+
+    const maxPeak = Math.max(...peaks, 0.0001); // avoid division by zero
+    return peaks.map(p => p / maxPeak);
+}
+
+// Waveform Drawing
+function getCanvasDimensions(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || canvas.offsetWidth || 300;
+    const height = rect.height || canvas.offsetHeight || 60;
+    return { dpr, width, height };
+}
+
+function drawWaveform() {
+    if (!waveformData || waveformData.length === 0) {
+        drawEmptyWaveform();
+        return;
+    }
+
+    const canvas = waveformCanvas;
+    const ctx = canvas.getContext('2d');
+    const { dpr, width, height } = getCanvasDimensions(canvas);
+    if (width <= 0 || height <= 0) return;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const numBars = waveformData.length;
+    const barWidth = width / numBars;
+    const innerWidth = Math.max(1, barWidth - 2);
+    // radius must be > 0 and <= half of both dimensions
+    const radius = Math.max(0, Math.min(innerWidth / 2, 3));
+
+    const progress = audio.duration ? audio.currentTime / audio.duration : 0;
+    const progressX = progress * width;
+
+    ctx.clearRect(0, 0, width, height);
+
+    waveformData.forEach((peak, i) => {
+        const x = i * barWidth + 1;
+        const barHeight = Math.max(2, peak * height * 0.9);
+        const y = (height - barHeight) / 2;
+
+        ctx.fillStyle = x < progressX ? '#2563EB' : '#1E293B';
+        ctx.globalAlpha = x < progressX ? 1 : 0.3;
+
+        ctx.beginPath();
+        if (radius > 0 && barHeight >= radius * 2) {
+            ctx.roundRect(x, y, innerWidth, barHeight, radius);
+        } else {
+            ctx.rect(x, y, innerWidth, barHeight);
+        }
+        ctx.fill();
+    });
+
+    // Playhead
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#2563EB';
+    ctx.fillRect(progressX - 1, 0, 2, height);
+}
+
+// Canvas interaction
+waveformCanvas.addEventListener('click', (e) => {
+    if (!audio.duration) return;
+
+    const rect = waveformCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const progress = x / rect.width;
+
+    audio.currentTime = progress * audio.duration;
+});
+
+// File handling - iOS optimized
+filePicker.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files).filter(f =>
+        f.type.startsWith('audio/') ||
+        f.name.match(/\.(mp3|m4a|wav|flac|ogg|aac|opus)$/i)
+    );
+
+    if (files.length === 0) {
+        showToast('No audio files found');
+        return;
+    }
+
+    showToast(`Adding ${files.length} song${files.length > 1 ? 's' : ''}...`);
+
+    // Process files sequentially to avoid memory issues on iOS
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+            // Read into ArrayBuffer immediately — iOS invalidates File references
+            // once the picker is dismissed or filePicker.value is reset.
+            const arrayBuffer = await file.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: file.type || 'audio/mpeg' });
+
+            // Store blob in IndexedDB for persistence across sessions
+            const id = await saveSongToDB(blob, cleanName(file.name), blob.type);
+
+            // Create a stable object URL from our own Blob (not the File)
+            const url = URL.createObjectURL(blob);
+
+            playlist.push({
+                id,
+                name: cleanName(file.name),
+                url,
+                type: blob.type,
+                size: file.size
+            });
+
+            // Update toast to show progress
+            if (i === files.length - 1) {
+                showToast(`${files.length} song${files.length > 1 ? 's' : ''} added`);
+            }
+        } catch (error) {
+            console.error('Error saving song:', error);
+            showToast(`Error adding ${file.name}`);
+        }
+    }
+
+    renderPlaylist();
+
+    // Auto-play first song if nothing is playing
+    if (currentIndex === -1 && playlist.length > 0) {
+        loadSong(0);
+    }
+
+    // Reset file input for iOS (allows selecting same files again)
+    filePicker.value = '';
+});
+
+// Clean up object URLs when they're no longer needed
+function revokePlaylistURLs() {
+    playlist.forEach(song => {
+        if (song.url) {
+            URL.revokeObjectURL(song.url);
+        }
+    });
+}
+
+// Playlist management
+function renderPlaylist() {
+    const existingSongs = playlistSongs.querySelectorAll('.song-item');
+    existingSongs.forEach(el => el.remove());
+
+    if (playlist.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    playlist.forEach((song, index) => {
+        const item = document.createElement('div');
+        item.className = `song-item${index === currentIndex ? ' active' : ''}`;
+        item.innerHTML = `
+            <div class="song-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+            </div>
+            <div class="song-item-info">
+                <div class="song-item-title">${song.name}</div>
+                <div class="song-item-duration">Local audio</div>
+            </div>
+            <button class="song-item-delete" data-index="${index}" aria-label="Delete song">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        `;
+
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.song-item-delete')) {
+                loadSong(index);
+                closePlaylist();
+            }
+        });
+
+        item.querySelector('.song-item-delete').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await deleteSongFromDB(song.id);
+            URL.revokeObjectURL(song.url);
+            playlist.splice(index, 1);
+
+            if (currentIndex >= index) {
+                currentIndex = Math.max(-1, currentIndex - 1);
+            }
+
+            if (currentIndex === -1 && playlist.length > 0) {
+                loadSong(0);
+            } else if (playlist.length === 0) {
+                resetPlayer();
+            }
+
+            renderPlaylist();
+            showToast('Song removed');
+        });
+
+        playlistSongs.appendChild(item);
+    });
+}
+
+async function loadSong(index) {
+    if (index < 0 || index >= playlist.length) return;
+
+    currentIndex = index;
+    const song = playlist[index];
+
+    audio.src = song.url;
+    songTitle.textContent = song.name;
+    artistName.textContent = 'Local Audio';
+
+    // Reset waveform
+    waveformData = [];
+    audioBuffer = null;
+    drawEmptyWaveform();
+
+    // Update UI
+    cover.classList.add('playing');
+    updatePlayIcon(true);
+
+    // Analyze waveform — defer slightly so audio element can begin loading first
+    getSongFromDB(song.id).then(record => {
+        if (record && record.blob) {
+            return analyzeAudio(record.blob);
+        }
+    }).catch(err => console.error('Waveform analysis failed:', err));
+
+    audio.play().then(() => {
+        isPlaying = true;
+        updateMediaSession();
+    }).catch(() => {});
+
+    renderPlaylist();
+    updatePlaylistActive();
+}
+
+function resetPlayer() {
+    audio.src = '';
+    songTitle.textContent = 'Choose music';
+    artistName.textContent = 'Your local library';
+    cover.classList.remove('playing');
+    isPlaying = false;
+    currentIndex = -1;
+    waveformData = [];
+    audioBuffer = null;
+    drawEmptyWaveform();
+    updatePlayIcon(false);
+    currentTimeEl.textContent = '0:00';
+    totalTimeEl.textContent = '0:00';
+}
+
+function updatePlayIcon(playing) {
+    if (playing) {
+        playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    } else {
+        playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    }
+}
+
+function updatePlaylistActive() {
+    document.querySelectorAll('.song-item').forEach((el, i) => {
+        el.classList.toggle('active', i === currentIndex);
+    });
+}
+
+// Playback controls
+playBtn.addEventListener('click', togglePlay);
+
+function togglePlay() {
+    if (!audio.src) return;
+
+    if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+        cover.classList.remove('playing');
+    } else {
+        audio.play();
+        isPlaying = true;
+        cover.classList.add('playing');
+    }
+
+    updatePlayIcon(isPlaying);
+}
+
+prevBtn.addEventListener('click', () => {
+    if (audio.currentTime > 5) {
+        audio.currentTime = 0;
+    } else if (playlist.length > 0) {
+        loadSong(currentIndex > 0 ? currentIndex - 1 : playlist.length - 1);
+    }
+});
+
+nextBtn.addEventListener('click', () => {
+    if (playlist.length === 0) return;
+
+    let nextIndex;
+    if (shuffle) {
+        nextIndex = Math.floor(Math.random() * playlist.length);
+    } else {
+        nextIndex = (currentIndex + 1) % playlist.length;
+    }
+
+    loadSong(nextIndex);
+});
+
+shuffleBtn.addEventListener('click', () => {
+    shuffle = !shuffle;
+    shuffleBtn.classList.toggle('active', shuffle);
+});
+
+loopBtn.addEventListener('click', () => {
+    loop = !loop;
+    loopBtn.classList.toggle('active', loop);
+});
+
+// Audio events
+audio.addEventListener('timeupdate', () => {
+    if (!audio.duration) return;
+
+    const progress = (audio.currentTime / audio.duration) * 100;
+    progressFill.style.width = `${progress}%`;
+    currentTimeEl.textContent = formatTime(audio.currentTime);
+    totalTimeEl.textContent = formatTime(audio.duration);
+
+    drawWaveform();
+});
+
+audio.addEventListener('ended', () => {
+    if (loop) {
+        audio.currentTime = 0;
+        audio.play();
+    } else {
+        nextBtn.click();
+    }
+});
+
+audio.addEventListener('error', () => {
+    showToast('Error loading audio');
+    nextBtn.click();
+});
+
+function formatTime(seconds) {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Playlist panel
+function openPlaylist() {
+    playlistPanel.classList.add('open');
+    overlay.classList.add('visible');
+}
+
+function closePlaylist() {
+    playlistPanel.classList.remove('open');
+    overlay.classList.remove('visible');
+}
+
+playlistToggle.addEventListener('click', () => {
+    if (playlistPanel.classList.contains('open')) {
+        closePlaylist();
+    } else {
+        openPlaylist();
+    }
+});
+
+overlay.addEventListener('click', closePlaylist);
+
+addMoreBtn.addEventListener('click', () => {
+    // Trigger file picker synchronously within the user gesture.
+    // setTimeout breaks iOS Safari's gesture requirement, so we
+    // call click() first and close the playlist panel after.
+    filePicker.click();
+    closePlaylist();
+});
+
+clearAllBtn.addEventListener('click', async () => {
+    if (playlist.length === 0) return;
+
+    await clearAllSongsFromDB();
+    playlist.forEach(song => URL.revokeObjectURL(song.url));
+    playlist = [];
+    resetPlayer();
+    renderPlaylist();
+    closePlaylist();
+    showToast('Playlist cleared');
+});
+
+// Touch gestures
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+});
+
+document.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].screenX - touchStartX;
+    const dy = e.changedTouches[0].screenY - touchStartY;
+
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) nextBtn.click();
+        else prevBtn.click();
+    } else if (dy < -100) {
+        openPlaylist();
+    }
+});
+
+// Media Session
+function updateMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: playlist[currentIndex]?.name || 'Unknown',
+        artist: 'Nordic Wave',
+        album: 'Local Library'
+    });
+
+    navigator.mediaSession.setActionHandler('play', togglePlay);
+    navigator.mediaSession.setActionHandler('pause', togglePlay);
+    navigator.mediaSession.setActionHandler('previoustrack', () => prevBtn.click());
+    navigator.mediaSession.setActionHandler('nexttrack', () => nextBtn.click());
+}
+
+// Toast
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// Empty waveform
+function drawEmptyWaveform() {
+    const canvas = waveformCanvas;
+    const ctx = canvas.getContext('2d');
+    const { dpr, width, height } = getCanvasDimensions(canvas);
+    if (width <= 0 || height <= 0) return;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const barWidth = 3;
+    const gap = 2;
+    const bars = Math.max(1, Math.floor(width / (barWidth + gap)));
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#DCD9D1';
+
+    for (let i = 0; i < bars; i++) {
+        const x = i * (barWidth + gap);
+        const barHeight = 4;
+        const y = (height - barHeight) / 2;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, 1);
+        ctx.fill();
+    }
+}
+
+// PWA Install
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    setTimeout(() => installBanner.classList.add('show'), 3000);
+});
+
+installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+        installBanner.classList.remove('show');
+    }
+    deferredPrompt = null;
+});
+
+installClose.addEventListener('click', () => {
+    installBanner.classList.remove('show');
+});
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// Initialize
+async function init() {
+    try {
+        await initDB();
+        const songs = await getAllSongsFromDB();
+
+        if (songs.length > 0) {
+            for (const song of songs) {
+                const url = URL.createObjectURL(song.blob);
+                playlist.push({
+                    id: song.id,
+                    name: song.name,
+                    url,
+                    type: song.type
+                });
+            }
+
+            renderPlaylist();
+        }
+    } catch (error) {
+        console.error('Error initializing:', error);
+    }
+
+    initVinylGrooves();
+    drawEmptyWaveform();
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (waveformData.length > 0) {
+            drawWaveform();
+        } else {
+            drawEmptyWaveform();
+        }
+    });
+}
+
+init();
+</script>
+</body>
+</html>
